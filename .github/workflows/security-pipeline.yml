@@ -1,0 +1,95 @@
+name: Security Pipeline
+
+# Run this pipeline on every push and pull request to the main branch.
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Stage 1: Secret scanning. Catches accidentally committed credentials.
+  secret-scan:
+    name: Secret Scan (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Stage 2: PHP static analysis. Mirrors CV-Library's confirmed CI practice.
+  static-analysis:
+    name: PHP Static Analysis (PHPStan)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - name: Install PHPStan
+        run: composer require --dev phpstan/phpstan --no-interaction
+      - name: Run PHPStan
+        run: vendor/bin/phpstan analyse --no-progress
+
+  # Stage 3: Vulnerability scanning of dependencies and filesystem (SCA).
+  vulnerability-scan:
+    name: Vulnerability Scan (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '1'
+
+  # Stage 4: Container image scanning. Builds the Docker image and scans it.
+  container-scan:
+    name: Container Image Scan (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t securestack-idp-php-service:scan .
+      - name: Scan the built image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'image'
+          image-ref: 'securestack-idp-php-service:scan'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '1'
+
+  # Stage 5: Infrastructure-as-Code scanning. Checks Dockerfile and manifests for misconfigurations.
+  iac-scan:
+    name: IaC Scan (Trivy Config)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Run Trivy config scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '1'
+
+  # Stage 6: Security gate. Only passes if all the above stages passed.
+  security-gate:
+    name: Security Gate
+    runs-on: ubuntu-latest
+    needs: [secret-scan, static-analysis, vulnerability-scan, container-scan, iac-scan]
+    steps:
+      - name: All security checks passed
+        run: echo "All security checks passed. Safe to proceed."
