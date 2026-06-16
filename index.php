@@ -6,6 +6,10 @@
 
 declare(strict_types=1);
 
+// TEST: deliberately planted fake secret to verify Gitleaks catches it.
+$awsSecretKey = "AKIAIOSFODNN7EXAMPLE";
+$awsSecret = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+
 // Work out what path the user requested.
 $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 
