@@ -1,0 +1,15 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: securestack-idp-php-service
+  description: A small PHP service with a secure CI pipeline (Gitleaks, PHPStan, Trivy). Part of the securestack-idp platform.
+  annotations:
+    github.com/project-slug: baks7101/securestack-idp-php-service
+  tags:
+    - php
+    - security
+    - platform
+spec:
+  type: service
+  lifecycle: production
+  owner: baks7101
