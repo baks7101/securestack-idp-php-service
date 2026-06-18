@@ -8,17 +8,15 @@ on:
     branches: [ main ]
 
 jobs:
-  # Stage 1: Secret scanning. Scans the full filesystem so secrets cannot slip through diff gaps.
+  # Stage 1: Secret scanning via the official Gitleaks Docker image (no install/PATH issues).
   secret-scan:
     name: Secret Scan (Gitleaks)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Install Gitleaks
-        run: curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/scripts/install.sh | sh -s -- -b /usr/local/bin
       - name: Run Gitleaks directory scan
-        run: gitleaks dir . --redact -v --exit-code 1
+        run: docker run --rm -v "${{ github.workspace }}:/repo" zricethezav/gitleaks:latest dir /repo --redact -v --exit-code 1
 
   # Stage 2: PHP static analysis. Mirrors CV-Library's confirmed CI practice.
   static-analysis:
